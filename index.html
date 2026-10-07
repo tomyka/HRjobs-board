@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Žaneta's HR Job Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: summary strip, sticky filter bar, then one ranked list of job rows that expand into interview prep. */
+:root {
+  --bg: #f2f4f3;
+  --surface: #ffffff;
+  --fg: #1c2522;
+  --muted: #5d6b66;
+  --line: #d9e0dd;
+  --accent: #a8590f;      /* amber: gintaras */
+  --accent-soft: #f6e7d6;
+  --tier-a: #1f6b4f; --tier-a-bg: #dcefe6;
+  --tier-b: #8a6512; --tier-b-bg: #f4ead2;
+  --tier-c: #5d6b66; --tier-c-bg: #e6eae8;
+  --new: #b42f4f; --new-bg: #f8dfe5;
+  --applied: #23558f; --applied-bg: #dde8f6;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121816; --surface: #1a2220; --fg: #e4ebe8; --muted: #95a49f; --line: #2c3834;
+  --accent: #e39a4f; --accent-soft: #3a2a1b;
+  --tier-a: #7fd1ab; --tier-a-bg: #18352a; --tier-b: #e2c06f; --tier-b-bg: #3a3018; --tier-c: #a3b0ab; --tier-c-bg: #26302d;
+  --new: #f08aa2; --new-bg: #44202a; --applied: #8fb8ec; --applied-bg: #1d2d42;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #121816; --surface: #1a2220; --fg: #e4ebe8; --muted: #95a49f; --line: #2c3834;
+  --accent: #e39a4f; --accent-soft: #3a2a1b;
+  --tier-a: #7fd1ab; --tier-a-bg: #18352a; --tier-b: #e2c06f; --tier-b-bg: #3a3018; --tier-c: #a3b0ab; --tier-c-bg: #26302d;
+  --new: #f08aa2; --new-bg: #44202a; --applied: #8fb8ec; --applied-bg: #1d2d42;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.5 var(--f-body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; }
+h1 { font: 700 clamp(1.6rem, 4vw, 2.3rem)/1.1 var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 70ch; }
+.sub b { color: var(--fg); font-weight: 600; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 22px 0 18px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; text-align: left; cursor: pointer; color: var(--fg); font: inherit; }
+.stat:hover, .stat[aria-pressed="true"] { border-color: var(--accent); }
+.stat .n { font: 500 1.6rem/1.1 var(--f-mono); font-variant-numeric: tabular-nums; display: block; }
+.stat .l { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); }
+.bar input[type=search], .bar select { font: inherit; font-size: 0.92rem; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+.bar input[type=search] { flex: 1 1 200px; }
+.bar label.chk { display: flex; gap: 6px; align-items: center; font-size: 0.92rem; color: var(--muted); }
+.count { margin-left: auto; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
+.notice { margin: 14px 0 0; padding: 10px 14px; border-radius: 6px; background: var(--accent-soft); font-size: 0.9rem; }
+.notice[hidden] { display: none; }
+
+ol.jobs { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.job.is-new { border-left: 4px solid var(--new); }
+.job.st-applied, .job.st-interview { border-left: 4px solid var(--applied); }
+.job.st-dismissed { opacity: 0.55; }
+.row { display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: start; padding: 12px 14px; }
+.score { font: 500 1.25rem/1 var(--f-mono); text-align: center; border-radius: 6px; padding: 8px 0 6px; font-variant-numeric: tabular-nums; }
+.score small { display: block; font: 600 0.68rem/1.4 var(--f-body); letter-spacing: 0.08em; text-transform: uppercase; }
+.t-A { background: var(--tier-a-bg); color: var(--tier-a); }
+.t-B { background: var(--tier-b-bg); color: var(--tier-b); }
+.t-C { background: var(--tier-c-bg); color: var(--tier-c); }
+.main { min-width: 0; }
+.title { font: 600 1.06rem/1.3 var(--f-body); color: var(--fg); text-decoration: none; }
+.title:hover { text-decoration: underline; color: var(--accent); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 0.9rem; margin-top: 3px; }
+.meta .co { color: var(--fg); }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; vertical-align: 2px; margin-left: 6px; }
+.pill.new { background: var(--new-bg); color: var(--new); }
+.pill:not(.new):not(.applied) { background: var(--tier-c-bg); color: var(--tier-c); }
+.pill.applied { background: var(--applied-bg); color: var(--applied); }
+.side { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.side select { font: inherit; font-size: 0.88rem; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.toggle { font: inherit; font-size: 0.85rem; color: var(--accent); background: none; border: 0; padding: 2px 0; cursor: pointer; }
+.toggle:focus-visible, .stat:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.prep { border-top: 1px dashed var(--line); padding: 12px 14px 14px 84px; display: grid; gap: 12px; }
+.prep h3 { font: 600 0.78rem/1 var(--f-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.topic { background: var(--bg); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.topic b { display: block; font-size: 0.95rem; }
+.topic .period { display: block; color: var(--accent); font-size: 0.82rem; font-weight: 600; margin: 2px 0 4px; }
+.topic p { margin: 0; font-size: 0.9rem; }
+.why { font-size: 0.85rem; color: var(--muted); }
+.desc { font-size: 0.88rem; color: var(--muted); max-width: 80ch; margin: 0; }
+textarea { font: inherit; font-size: 0.9rem; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; width: 100%; min-height: 60px; resize: vertical; }
+.setup { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-top: 18px; display: grid; gap: 10px; max-width: 640px; }
+.setup h2 { font: 700 1.15rem/1.2 var(--f-display); margin: 0; }
+.setup p { margin: 0; font-size: 0.92rem; color: var(--muted); }
+.setup form { display: flex; flex-wrap: wrap; gap: 8px; }
+.setup input { flex: 1 1 260px; min-width: 0; font: 0.9rem var(--f-mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; }
+.btn { font: 600 0.92rem var(--f-body); color: var(--bg); background: var(--accent); border: 0; border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+.linkbtn { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+footer { margin-top: 28px; color: var(--muted); font-size: 0.82rem; }
+footer code { font-family: var(--f-mono); font-size: 0.78rem; }
+
+@media (max-width: 640px) {
+  .row { grid-template-columns: 48px 1fr; }
+  .side { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+  .prep { padding-left: 14px; }
+}
+@media (prefers-reduced-motion: no-preference) { .job { transition: border-color .15s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Žaneta's HR Job Board</h1>
+    <p class="sub">HR leadership roles across Lithuanian job portals, ranked for a <b>Head of HR / HR Manager</b> with 10+ years across the full employee lifecycle. <b>Kaunas and remote</b> rank highest, Vilnius lower. Open a role to see 3-4 interview topics, each tied to a period of her career.</p>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <button class="stat" data-quick="all" aria-pressed="false"><span class="n" id="s-total">-</span><span class="l">Listed now</span></button>
+    <button class="stat" data-quick="new" aria-pressed="false"><span class="n" id="s-new">-</span><span class="l">New this run</span></button>
+    <button class="stat" data-quick="A" aria-pressed="false"><span class="n" id="s-a">-</span><span class="l">Top fit (A)</span></button>
+    <button class="stat" data-quick="applied" aria-pressed="false"><span class="n" id="s-applied">-</span><span class="l">Applied</span></button>
+  </section>
+
+  <div class="bar" role="search">
+    <input type="search" id="q" placeholder="Search title, company, city" aria-label="Search">
+    <select id="f-tier" aria-label="Fit"><option value="">All fits</option><option value="A">A - top fit</option><option value="AB">A + B</option><option value="C">C only</option></select>
+    <select id="f-loc" aria-label="Location"><option value="">Any location</option><option value="kaunas">Kaunas</option><option value="remote">Remote / hybrid</option><option value="vilnius">Vilnius</option><option value="other">Other</option></select>
+    <select id="f-status" aria-label="Status"><option value="open">Hide not relevant</option><option value="">All statuses</option><option value="todo">Not reviewed</option><option value="interested">Interested</option><option value="applied">Applied</option><option value="interview">Interview</option><option value="dismissed">Not relevant</option></select>
+    <label class="chk"><input type="checkbox" id="f-new"> New only</label>
+    <span class="count" id="count"></span>
+  </div>
+  <p class="notice" id="notice" hidden></p>
+
+  <section class="setup" id="setup" hidden>
+    <h2>Connect this device</h2>
+    <p>The job list and your marks are kept in a private GitHub repository. Paste the access key Tomas gave you once. It is stored only in this browser.</p>
+    <form id="setup-form">
+      <input id="token" type="password" autocomplete="off" placeholder="github_pat_..." aria-label="Access key">
+      <button class="btn" type="submit">Connect</button>
+    </form>
+    <p id="setup-msg"></p>
+  </section>
+
+  <ol class="jobs" id="jobs"><li class="empty">Loading job listings...</li></ol>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+// Data lives in the private repo; this public page holds none. A fine-grained token
+// (Contents: read/write on tomyka/HRjobs only) is kept in this browser's localStorage.
+const REPO = "tomyka/HRjobs";
+const API = `https://api.github.com/repos/${REPO}/contents`;
+const TOKEN_KEY = "hrjobs.token";
+const STATUSES = [
+  ["todo", "Not reviewed"], ["interested", "Interested"], ["applied", "Applied"],
+  ["interview", "Interview"], ["dismissed", "Not relevant"],
+];
+const state = { feed: null, status: {}, statusSha: null, canWrite: true, open: new Set(), pending: {} };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const statusOf = (key) => state.status[key]?.status || "todo";
+
+function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {} }
+
+class GitHubError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+
+async function gh(path, opts = {}) {
+  const res = await fetch(`${API}/${path}`, {
+    ...opts,
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${getToken()}`, "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) },
+  });
+  if (!res.ok) throw new GitHubError(res.status, `GitHub answered ${res.status}`);
+  return res;
+}
+
+const b64decode = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) => c.charCodeAt(0)));
+const b64encode = (text) => { let bin = ""; new TextEncoder().encode(text).forEach((b) => { bin += String.fromCharCode(b); }); return btoa(bin); };
+
+async function loadFeed() {
+  const res = await gh("data/jobs.json", { headers: { Accept: "application/vnd.github.raw+json" } });
+  state.feed = await res.json();
+}
+
+async function loadStatus() {
+  try {
+    const file = await (await gh("data/status.json")).json();
+    state.statusSha = file.sha;
+    state.status = JSON.parse(b64decode(file.content));
+  } catch (e) {
+    if (e.status !== 404) throw e;
+    state.statusSha = null; // first save creates the file
+    state.status = {};
+  }
+}
+
+// Marks are batched and written as one commit; on a conflict (another device saved
+// in between) the latest file is re-read and the pending changes re-applied.
+let saveTimer = null;
+function queueSave(key, patch) {
+  const job = state.feed.jobs.find((j) => j.key === key);
+  const prev = state.status[key] || {};
+  const next = { ...prev, ...patch, updatedAt: new Date().toISOString(),
+    title: job?.title ?? prev.title, company: job?.company ?? prev.company, url: job?.url ?? prev.url, location: job?.location ?? prev.location };
+  if ((patch.status === "applied" || patch.status === "interview") && !prev.appliedAt) next.appliedAt = next.updatedAt;
+  state.status[key] = next;
+  state.pending[key] = next;
+  showNotice("Saving...");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 1200);
+}
+
+async function flush(attempt = 0) {
+  const changes = state.pending;
+  state.pending = {};
+  if (!Object.keys(changes).length) return;
+  try {
+    const merged = { ...state.status, ...changes };
+    const body = { message: `Status: ${Object.keys(changes).length} job(s) updated`, content: b64encode(JSON.stringify(merged, null, 1)) };
+    if (state.statusSha) body.sha = state.statusSha;
+    const res = await gh("data/status.json", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    state.statusSha = (await res.json()).content.sha;
+    state.status = merged;
+    showNotice("Saved.", 1500);
+  } catch (e) {
+    if ((e.status === 409 || e.status === 422) && attempt < 2) {
+      await loadStatus();
+      state.pending = { ...changes, ...state.pending };
+      return flush(attempt + 1);
+    }
+    state.pending = { ...changes, ...state.pending };
+    if (e.status === 403 || e.status === 401) { state.canWrite = false; render(); }
+    showNotice(e.status === 403 ? "This access key can read but not save. Ask Tomas for a key with write access." : `Not saved (${e.message}). Changes stay on screen; they will be saved with your next change.`);
+  }
+}
+
+let noticeTimer = null;
+function showNotice(text, hideAfterMs) {
+  $("notice").textContent = text; $("notice").hidden = false;
+  clearTimeout(noticeTimer);
+  if (hideAfterMs) noticeTimer = setTimeout(() => { $("notice").hidden = true; }, hideAfterMs);
+}
+
+function locClass(j) {
+  const l = (j.location || "").toLowerCase();
+  if (j.remote || /nuotol|remote/.test(l)) return "remote";
+  if (/kaun/.test(l)) return "kaunas";
+  if (/vilni/.test(l)) return "vilnius";
+  return "other";
+}
+
+function salaryText(j) {
+  if (!j.salary_from && !j.salary_to) return "";
+  const range = j.salary_from && j.salary_to ? `${j.salary_from}-${j.salary_to}` : j.salary_from ? `from ${j.salary_from}` : `up to ${j.salary_to}`;
+  const net = /rankas/i.test(j.salary_note || "") ? " net" : "";
+  return `${range} EUR${net}`;
+}
+
+// Roles she marked that have since left the portals, so her applications never vanish.
+function archivedJobs() {
+  const listed = new Set(state.feed.jobs.map((j) => j.key));
+  return Object.entries(state.status)
+    .filter(([k, s]) => !listed.has(k) && (s.status === "applied" || s.status === "interview" || s.status === "interested"))
+    .map(([k, s]) => ({ key: k, title: s.title || k, company: s.company || "", location: s.location || "", url: s.url || "#",
+      score: "-", tier: "C", topics: [], reasons: ["Ad no longer listed"], alsoOn: [], source: "archived", isNew: false, archived: true }));
+}
+
+function visibleJobs() {
+  const q = $("q").value.trim().toLowerCase();
+  const tier = $("f-tier").value, loc = $("f-loc").value, st = $("f-status").value, onlyNew = $("f-new").checked;
+  const pool = st && st !== "open" && st !== "todo" && st !== "dismissed" ? [...state.feed.jobs, ...archivedJobs()] : state.feed.jobs;
+  return pool.filter((j) => {
+    const s = statusOf(j.key);
+    if (!j.archived) {
+      if (tier === "A" && j.tier !== "A") return false;
+      if (tier === "AB" && j.tier === "C") return false;
+      if (tier === "C" && j.tier !== "C") return false;
+      if (loc && locClass(j) !== loc && !(loc === "remote" && j.remote)) return false;
+    }
+    if (st === "open" && s === "dismissed") return false;
+    if (st && st !== "open" && s !== st) return false;
+    if (onlyNew && !j.isNew) return false;
+    if (q && !`${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function jobHtml(j) {
+  const s = statusOf(j.key);
+  const open = state.open.has(j.key);
+  const pills = (j.isNew ? '<span class="pill new">New</span>' : "") + (s === "applied" || s === "interview" ? `<span class="pill applied">${s === "applied" ? "Applied" : "Interview"}</span>` : "") + (j.archived ? '<span class="pill">Ad closed</span>' : "");
+  const opts = STATUSES.map(([v, l]) => `<option value="${v}"${v === s ? " selected" : ""}>${l}</option>`).join("");
+  const sources = [j.source, ...(j.alsoOn || []).map((u) => { try { return new URL(u).hostname.replace("www.", ""); } catch { return ""; } })].filter(Boolean);
+  const where = [j.location, j.remote].filter(Boolean).join(" · ");
+  const applied = state.status[j.key]?.appliedAt ? `<span>Applied ${esc(new Date(state.status[j.key].appliedAt).toLocaleDateString("lt-LT"))}</span>` : "";
+  const prep = open ? `
+    <div class="prep">
+      ${j.topics.length ? `<h3>Interview prep: topics this role will probe</h3>
+      <div class="topics">${j.topics.map((t) => `
+        <div class="topic"><b>${esc(t.label)}</b><span class="period">${esc(t.period)}</span><p>${esc(t.talking_point)}</p></div>`).join("")}
+      </div>` : ""}
+      <p class="why">Why this rank: ${esc(j.reasons.join(" · "))}</p>
+      ${j.description ? `<p class="desc">${esc(j.description.slice(0, 420))}${j.description.length > 420 ? "..." : ""}</p>` : ""}
+      <div><h3 style="margin-bottom:6px">My notes</h3>
+        <textarea id="note-${esc(j.key)}" data-note="${esc(j.key)}" placeholder="Contact person, application date, follow-up..." ${state.canWrite ? "" : "disabled"}>${esc(state.status[j.key]?.note || "")}</textarea></div>
+    </div>` : "";
+  return `<li class="job st-${s}${j.isNew ? " is-new" : ""}" data-key="${esc(j.key)}">
+    <div class="row">
+      <div class="score t-${j.tier}" title="Fit score out of 100">${j.score}<small>${j.archived ? "-" : j.tier}</small></div>
+      <div class="main">
+        <a class="title" href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.title)}</a>${pills}
+        <div class="meta"><span class="co">${esc(j.company)}</span>${where ? `<span>${esc(where)}</span>` : ""}${salaryText(j) ? `<span>${esc(salaryText(j))}</span>` : ""}${applied}<span>${esc(sources.join(", "))}</span></div>
+      </div>
+      <div class="side">
+        <select id="st-${esc(j.key)}" data-status="${esc(j.key)}" aria-label="Status" ${state.canWrite ? "" : "disabled"}>${opts}</select>
+        <button class="toggle" data-toggle="${esc(j.key)}" aria-expanded="${open}">${open ? "Hide" : j.archived ? "Notes" : "Interview prep"}</button>
+      </div>
+    </div>${prep}
+  </li>`;
+}
+
+function render() {
+  if (!state.feed) return;
+  const jobs = state.feed.jobs;
+  $("s-total").textContent = jobs.length;
+  $("s-new").textContent = jobs.filter((j) => j.isNew).length;
+  $("s-a").textContent = jobs.filter((j) => j.tier === "A").length;
+  $("s-applied").textContent = Object.values(state.status).filter((s) => s.status === "applied" || s.status === "interview").length;
+  const list = visibleJobs();
+  $("count").textContent = `${list.length} of ${jobs.length}`;
+  $("jobs").innerHTML = list.length ? list.map(jobHtml).join("") : '<li class="empty">No roles match these filters.</li>';
+  const when = new Date(state.feed.generatedAt);
+  const src = Object.entries(state.feed.sources).map(([n, r]) => r.error ? `${n}: failed` : `${n}: ${r.count}`).join(" · ");
+  $("foot").innerHTML = `Updated ${esc(when.toLocaleString("lt-LT"))} · refreshed daily at 08:00 · ${esc(src)}. Applied roles stay saved after the ad is taken down. <button class="linkbtn" id="disconnect">Disconnect this device</button>`;
+}
+
+function showSetup(message) {
+  $("setup").hidden = false;
+  $("setup-msg").textContent = message || "";
+  $("jobs").innerHTML = "";
+  $("foot").textContent = "";
+}
+
+document.addEventListener("change", (e) => {
+  const k = e.target.dataset.status;
+  if (k) { queueSave(k, { status: e.target.value }); render(); }
+  else if (e.target.closest(".bar")) render();
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "q") render();
+  const k = e.target.dataset.note;
+  if (k) queueSave(k, { note: e.target.value });
+});
+document.addEventListener("click", (e) => {
+  if (e.target.id === "disconnect") { setToken(""); location.reload(); return; }
+  const t = e.target.closest("[data-toggle]");
+  if (t) { const k = t.dataset.toggle; state.open.has(k) ? state.open.delete(k) : state.open.add(k); render(); return; }
+  const q = e.target.closest("[data-quick]");
+  if (q) {
+    const v = q.dataset.quick;
+    $("f-tier").value = v === "A" ? "A" : "";
+    $("f-new").checked = v === "new";
+    $("f-status").value = v === "applied" ? "applied" : "open";
+    $("f-loc").value = ""; $("q").value = "";
+    document.querySelectorAll("[data-quick]").forEach((b) => b.setAttribute("aria-pressed", String(b === q && v !== "all")));
+    render();
+  }
+});
+$("setup-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = $("token").value.trim();
+  if (!t) return;
+  setToken(t);
+  $("setup").hidden = true;
+  boot();
+});
+// Pick up marks saved from another device when she comes back to this tab.
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !state.feed || Object.keys(state.pending).length) return;
+  try { await loadStatus(); if (!document.activeElement?.dataset?.note) render(); } catch {}
+});
+
+async function boot() {
+  if (!getToken()) return showSetup();
+  $("jobs").innerHTML = '<li class="empty">Loading job listings...</li>';
+  try {
+    await Promise.all([loadFeed(), loadStatus()]);
+  } catch (e) {
+    if (e.status === 401 || e.status === 404) { setToken(""); return showSetup("That access key did not work (it may have expired). Paste a new one."); }
+    $("jobs").innerHTML = `<li class="empty">Job listings could not be loaded (${esc(e.message)}). Reload the page.</li>`;
+    return;
+  }
+  render();
+}
+boot();
+</script>
+</body>
+</html>
